@@ -23,6 +23,7 @@ import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.heightIn
 import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.layout.size
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Alignment
@@ -31,6 +32,7 @@ import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.text.font.FontFamily
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.text.style.TextOverflow
+import com.tencent.kuikly.compose.ui.unit.dp
 
 /**
  * 买卖建议卡片。视觉规格见设计系统 5.4 节：芯片 + 风险 + 点位 + 查看理由。
@@ -90,6 +92,10 @@ fun AIAdviceCard(
             AIAdviceChip(advice = stock.aiAdvice)
             RiskGhostBadge(risk = stock.riskLevel)
         }
+        if (stock.adviceReasons.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(AppDimens.Space3))
+            AdviceSupportPoints(reasons = stock.adviceReasons)
+        }
         Spacer(modifier = Modifier.height(AppDimens.Space3))
         PointRow(label = "支撑买入价", value = QuoteFormat.price(stock.buyPoint))
         Spacer(modifier = Modifier.height(AppDimens.Space1))
@@ -105,6 +111,43 @@ fun AIAdviceCard(
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+/**
+ * 买卖建议支撑点。每行小圆点 + 12sp 正文，行距 4dp。
+ *
+ * @param reasons 2–3 条与当前股票数据一致的文案
+ */
+@Composable
+fun AdviceSupportPoints(
+    reasons: List<String>,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.Space1)
+    ) {
+        reasons.take(3).forEach { reason ->
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(AppDimens.Space2)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 5.dp)
+                        .size(6.dp)
+                        .background(AppColors.AI, RoundedCornerShape(3.dp))
+                )
+                Text(
+                    text = reason,
+                    color = AppColors.TextBody,
+                    fontSize = AppType.Caption,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = AppType.CaptionLine
+                )
+            }
         }
     }
 }

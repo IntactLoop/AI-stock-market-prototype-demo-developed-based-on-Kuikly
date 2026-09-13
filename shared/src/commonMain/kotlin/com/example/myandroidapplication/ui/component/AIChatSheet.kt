@@ -9,7 +9,9 @@ import androidx.compose.runtime.setValue
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.ui.chat.ChatReply
 import com.example.myandroidapplication.ui.chat.PresetQuestions
+import com.example.myandroidapplication.ui.chat.answerFollowUp
 import com.example.myandroidapplication.ui.chat.answerQuestion
+import com.example.myandroidapplication.ui.chat.followUpQuestions
 import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
 import com.example.myandroidapplication.ui.theme.AppType
@@ -126,11 +128,12 @@ private fun ChatSheetBody(
     var loading by remember(stock.symbol) { mutableStateOf(false) }
     var sendingPreset by remember(stock.symbol) { mutableStateOf<String?>(null) }
     var pendingQuestion by remember(stock.symbol) { mutableStateOf<String?>(null) }
+    var pendingPrevious by remember(stock.symbol) { mutableStateOf<String?>(null) }
     var requestId by remember(stock.symbol) { mutableStateOf(0) }
     var nextId by remember(stock.symbol) { mutableStateOf(0) }
     val listState = rememberLazyListState()
 
-    fun send(text: String, preset: String?) {
+    fun send(text: String, preset: String?, previousQuestion: String? = null) {
         val question = text.trim()
         if (question.isEmpty() || loading) {
             return
@@ -143,6 +146,7 @@ private fun ChatSheetBody(
         nextId += 2
         messages = messages + ChatLine.User(userId, question) + ChatLine.Loading(loadId)
         pendingQuestion = question
+        pendingPrevious = previousQuestion
         requestId += 1
         listState.requestScrollToItem(messages.lastIndex)
     }
@@ -157,14 +161,20 @@ private fun ChatSheetBody(
             timer.cancel()
             val withoutLoading = messages.filter { it !is ChatLine.Loading }
             messages = try {
-                val reply = answerQuestion(stock, question)
-                withoutLoading + ChatLine.Ai(nextId, reply).also { nextId += 1 }
+                val previous = pendingPrevious
+                val reply = if (previous.isNullOrBlank()) {
+                    answerQuestion(stock, question)
+                } else {
+                    answerFollowUp(stock, question, previous)
+                }
+                withoutLoading + ChatLine.Ai(nextId, reply, question).also { nextId += 1 }
             } catch (_: Throwable) {
                 withoutLoading + ChatLine.Failed(nextId).also { nextId += 1 }
             }
             loading = false
             sendingPreset = null
             pendingQuestion = null
+            pendingPrevious = null
             val last = messages.lastIndex
             if (last >= 0) {
                 listState.requestScrollToItem(last)
@@ -246,7 +256,20 @@ private fun ChatSheetBody(
                         is ChatLine.User -> UserBubble(text = line.text)
                         is ChatLine.Loading -> LoadingBubble()
                         is ChatLine.Failed -> FailedBubble()
-                        is ChatLine.Ai -> AiBubble(reply = line.reply)
+                        is ChatLine.Ai -> {
+                            AiBubble(reply = line.reply)
+                            val lastAi = messages.lastOrNull { it is ChatLine.Ai } as? ChatLine.Ai
+                            if (!loading && lastAi?.id == line.id) {
+                                FollowUpSuggestions(
+                                    questions = followUpQuestions(stock, line.question),
+                                    enabled = !loading,
+                                    selected = sendingPreset,
+                                    onClick = { followUp ->
+                                        send(followUp, followUp, previousQuestion = line.question)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -298,6 +321,43 @@ private fun EmptyChatHint(modifier: Modifier = Modifier) {
                 color = AppColors.TextDisabled,
                 fontSize = AppType.Caption,
                 fontWeight = FontWeight.Normal
+            )
+        }
+    }
+}
+
+/**
+ * 最近一条 AI 回答下的追问。最多 3 个，复用 [PresetQuestionChip]，禁止新依赖。
+ */
+@Composable
+private fun FollowUpSuggestions(
+    questions: List<String>,
+    enabled: Boolean,
+    selected: String?,
+    onClick: (String) -> Unit
+) {
+    val visible = questions.take(3)
+    if (visible.isEmpty()) {
+        return
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = AppDimens.Space1),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.Space1)
+    ) {
+        Text(
+            text = "你可能还想问",
+            color = AppColors.TextHint,
+            fontSize = AppType.Caption,
+            fontWeight = FontWeight.Normal
+        )
+        visible.forEach { question ->
+            PresetQuestionChip(
+                text = question,
+                selected = selected == question,
+                enabled = enabled,
+                onClick = { onClick(question) }
             )
         }
     }
@@ -538,5 +598,5 @@ private sealed class ChatLine {
     data class User(override val id: Int, val text: String) : ChatLine()
     data class Loading(override val id: Int) : ChatLine()
     data class Failed(override val id: Int) : ChatLine()
-    data class Ai(override val id: Int, val reply: ChatReply) : ChatLine()
+    data class Ai(override val id: Int, val reply: ChatReply, val question: String) : ChatLine()
 }

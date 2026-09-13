@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.myandroidapplication.data.model.ReasoningStep
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
@@ -92,6 +93,11 @@ fun AISignalCard(
                         selectedSignal = if (selectedSignal == label) null else label
                     }
                 )
+                val steps = stock.aiReasoningSteps
+                if (steps.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(AppDimens.Space3))
+                    ReasoningChain(steps = steps)
+                }
                 Spacer(modifier = Modifier.height(AppDimens.Space3))
                 Text(
                     text = interpretation,
@@ -133,6 +139,47 @@ fun AISignalCard(
             }
         }
     }
+}
+
+/**
+ * 分步推理链。插在徽章行与解读正文之间，不改置信度条与徽章。
+ */
+@Composable
+private fun ReasoningChain(steps: List<ReasoningStep>) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.Space1)
+    ) {
+        steps.forEach { step ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = step.marker,
+                    color = reasoningMarkerColor(step.marker),
+                    fontSize = AppType.Caption,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(end = AppDimens.Space2)
+                )
+                Text(
+                    text = step.text,
+                    color = AppColors.TextHint,
+                    fontSize = AppType.Caption,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = AppType.CaptionLine,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private fun reasoningMarkerColor(marker: String) = when (marker) {
+    ReasoningStep.MARK_OK -> AppColors.AI
+    ReasoningStep.MARK_WARN -> AppColors.Warning
+    else -> AppColors.Primary
 }
 
 @Composable

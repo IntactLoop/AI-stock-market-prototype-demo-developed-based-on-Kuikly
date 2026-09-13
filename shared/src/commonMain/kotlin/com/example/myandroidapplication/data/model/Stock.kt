@@ -40,6 +40,23 @@ package com.example.myandroidapplication.data.model
  * @property midTrend 中期趋势文案
  * @property alerts 盯盘提醒，至少 3 条
  * @property chartPoints 走势点，供 StockChart 与图表联动
+ * @property market 所属市场：沪深 / 港股 / 美股
+ * @property sector 所属板块名称
+ * @property tags 特征标签，供详情页 TagChip 使用
+ * @property popularity 人气值，范围 1–100，越大越热
+ * @property turnoverRate 换手率（百分比数值，2.35 表示 2.35%）
+ * @property marketCap 总市值，单位亿元
+ * @property week52High 52 周最高
+ * @property week52Low 52 周最低
+ * @property aiReasoningSteps 信号解读分步推理，3–5 步，随个股数据变化
+ * @property aiChartMarks 走势图 AI 标注点，下标对齐 [chartPoints]
+ * @property revenue 营收，单位亿元
+ * @property revenueGrowth 营收同比，百分比数值（8.5 表示 +8.5%）
+ * @property adviceReasons 买卖建议支撑点，2–3 条，须与当前行情数字一致
+ * @property trendConfidenceShort 短期趋势置信度 0–100
+ * @property trendConfidenceMid 中期趋势置信度 0–100
+ * @property trendConfidenceLong 长期趋势置信度 0–100
+ * @property trendNarrative 趋势解读，须与均线/涨跌数据一致
  */
 data class Stock(
     val symbol: String,
@@ -76,7 +93,24 @@ data class Stock(
     val shortTrend: String,
     val midTrend: String,
     val alerts: List<WatchAlert>,
-    val chartPoints: List<ChartPoint>
+    val chartPoints: List<ChartPoint>,
+    val market: String,
+    val sector: String,
+    val tags: List<String>,
+    val popularity: Int,
+    val turnoverRate: Double,
+    val marketCap: Double,
+    val week52High: Double,
+    val week52Low: Double,
+    val aiReasoningSteps: List<ReasoningStep>,
+    val aiChartMarks: List<ChartMark>,
+    val revenue: Double,
+    val revenueGrowth: Double,
+    val adviceReasons: List<String>,
+    val trendConfidenceShort: Int,
+    val trendConfidenceMid: Int,
+    val trendConfidenceLong: Int,
+    val trendNarrative: String
 ) {
     companion object {
         const val ADVICE_BUY = "买入"
@@ -88,6 +122,9 @@ data class Stock(
         const val ALERT_RISK = "风险"
         const val ALERT_FUND = "资金"
         const val ALERT_TREND = "趋势"
+        const val MARKET_CN = "沪深"
+        const val MARKET_HK = "港股"
+        const val MARKET_US = "美股"
     }
 }
 

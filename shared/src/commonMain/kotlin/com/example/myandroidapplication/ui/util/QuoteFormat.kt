@@ -49,6 +49,11 @@ object QuoteFormat {
         else -> "${twoDecimals(value / 100_000_000.0)}亿"
     }
 
+    /**
+     * 营收。入参已是亿元，展示为 `237.80亿`。
+     */
+    fun revenue(value: Double): String = "${twoDecimals(value)}亿"
+
     private fun signed(value: Double): String {
         val body = twoDecimals(abs(value))
         return when {

@@ -70,3 +70,47 @@ internal fun answerQuestion(stock: Stock, question: String): ChatReply {
         )
     }
 }
+
+/**
+ * 上一轮回答后的追问，最多 3 条，且不含刚问过的问题。
+ */
+internal fun followUpQuestions(stock: Stock, lastQuestion: String): List<String> {
+    val count = if (stock.aiAdvice == Stock.ADVICE_HOLD) 2 else 3
+    return PresetQuestions
+        .filter { candidate -> !sameQuestionTopic(candidate, lastQuestion) }
+        .take(count)
+}
+
+/**
+ * 追问回答：复用已有模板，仅在结论前加上下文前缀。
+ */
+internal fun answerFollowUp(stock: Stock, question: String, previousQuestion: String): ChatReply {
+    val base = answerQuestion(stock, question)
+    return base.copy(conclusion = followUpPrefix(previousQuestion) + base.conclusion)
+}
+
+internal fun followUpPrefix(previousQuestion: String): String = when {
+    previousQuestion.contains("支撑") || previousQuestion.contains("压力") ->
+        "基于刚才关于支撑位的讨论，"
+    previousQuestion.contains("买入") || previousQuestion.contains("适合") ->
+        "基于刚才关于买卖建议的讨论，"
+    previousQuestion.contains("风险") ->
+        "基于刚才关于风险的讨论，"
+    previousQuestion.contains("成交") || previousQuestion.contains("量") ->
+        "基于刚才关于成交量的讨论，"
+    previousQuestion.contains("总结") ->
+        "基于刚才的行情总结，"
+    else -> "基于刚才的讨论，"
+}
+
+private fun sameQuestionTopic(candidate: String, lastQuestion: String): Boolean = when {
+    lastQuestion.contains("买入") || lastQuestion.contains("适合") ->
+        candidate.contains("买入") || candidate.contains("适合")
+    lastQuestion.contains("风险") -> candidate.contains("风险")
+    lastQuestion.contains("成交") || lastQuestion.contains("量") ->
+        candidate.contains("成交") || candidate.contains("量")
+    lastQuestion.contains("支撑") || lastQuestion.contains("压力") ->
+        candidate.contains("支撑") || candidate.contains("压力")
+    lastQuestion.contains("总结") -> candidate.contains("总结")
+    else -> candidate == lastQuestion
+}
