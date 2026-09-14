@@ -1,4 +1,4 @@
-# AI 股票行情 Demo
+# Task 1: AI 股票行情 Demo
 
 基于腾讯 Kuikly Compose DSL 的 Android 端行情原型：首页看盘、个股详情、自选 / 选股 / 榜单 / 对比，以及叠在盘面上的结构化 AI 解读。业务 UI 写在 `shared` 的 `commonMain`，由 `androidApp` 壳启动。行情与 AI 文案来自 `StockRepository` 的 Mock 模板，**不调用真实行情接口，也不调用真实 LLM**。
 
