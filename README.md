@@ -8,7 +8,7 @@
 
 ### 演示视频
 
-视频展示：首页行情 → 个股详情 → AI 信号解读 → 图表联动 → 多股对比
+视频文件：/docs/demo.webm
 
 <video src="docs/demo.webm" controls width="720">
 浏览器不支持内嵌视频时，请打开 [docs/demo.webm](docs/demo.webm)。
