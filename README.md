@@ -1,4 +1,4 @@
-# Task 1: AI 股票行情 Demo
+# Task 1: 基于 Kuikly 的 AI 股票行情原型 Demo
 
 基于腾讯 Kuikly Compose DSL 的 Android 端行情原型：首页看盘、个股详情、自选 / 选股 / 榜单 / 对比，以及叠在盘面上的结构化 AI 解读。业务 UI 写在 `shared` 的 `commonMain`，由 `androidApp` 壳启动。行情与 AI 文案来自 `StockRepository` 的 Mock 模板，**不调用真实行情接口，也不调用真实 LLM**。
 
@@ -8,7 +8,7 @@
 
 ## 演示文件
 
-演示视频与图片：/docs
+演示视频与图片：docs/（视频过大，暂时移除了该文件目录）
 
 |  股票详情   |   AI信号解读&买卖建议  |   持仓诊断  |  多种分析   |   AI问答  |
 | --- | --- | --- | --- | --- |
@@ -46,7 +46,7 @@
 - **榜单**（`rankings`）：基金重仓股、公募重仓、加仓榜、新进榜，数据走 `getRankings`。
 - **对比**（`compare`）：首页对比模式勾选 2–4 只（上限 `AppContainer.COMPARE_MAX = 4`），进入指标列、归一化走势与 AI 综合分析。
 
-### 2.2 核心功能
+### 2.2 特色功能
 
 - **多市场切换**：沪深 / 港股 / 美股 Tab；`getStocks()` 仍为 50 只 A 股，港/美走 `getStocksByMarket`。
 - **指数 / 板块横滑**：`IndexCard`、`SectorRow`，数据来自 `getIndexes` / `getSectors`。
@@ -56,7 +56,7 @@
 - **筛选**：价格 / 涨跌幅 / 市值 / 标签，`filterStocks` + `FilterPanel` Sheet。
 - **排序升降序**：涨跌幅 / 人气 / 换手率，内存排序，同项再点切换升/降。
 
-### 2.3 特色亮点
+### 2.3 核心亮点
 
 **信号解读**  
 详情页 `AISignalCard` 展示技术信号徽章、解读句、置信度进度条，以及可点开的分步推理链。数据来自 `Stock.signals` / `aiInterpretation` / `aiConfidence` / `aiReasoningSteps`（Mock 按涨跌情景填模板）。点击徽章展开该信号说明；与当前均线、MACD、RSI 数字一致。
