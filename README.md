@@ -10,10 +10,6 @@
 
 视频文件：/docs/demo.webm
 
-<video src="docs/demo.webm" controls width="720">
-浏览器不支持内嵌视频时，请打开 [docs/demo.webm](docs/demo.webm)。
-</video>
-
 ---
 
 ## 一、简介
