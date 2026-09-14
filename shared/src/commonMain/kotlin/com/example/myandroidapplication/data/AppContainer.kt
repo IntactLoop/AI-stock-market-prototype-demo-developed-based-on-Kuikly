@@ -52,4 +52,37 @@ object AppContainer {
             .take(COMPARE_MAX)
             .mapNotNull { symbol -> stockRepository.getStock(symbol) }
     }
+
+    const val RISK_STEADY = "稳健"
+    const val RISK_BALANCED = "平衡"
+    const val RISK_AGGRESSIVE = "进取"
+
+    var riskPreference by mutableStateOf(RISK_BALANCED)
+        private set
+
+    var riskPreferenceChosen by mutableStateOf(false)
+        private set
+
+    var riskProfilePrompted by mutableStateOf(false)
+        private set
+
+    fun chooseRiskPreference(value: String) {
+        riskPreference = value
+        riskPreferenceChosen = true
+        riskProfilePrompted = true
+    }
+
+    fun markRiskProfilePrompted() {
+        riskProfilePrompted = true
+    }
+
+    /**
+     * 本次进程是否已自动弹出过盘前早报。只作一次性标记，不保存 Sheet 可见状态。
+     */
+    var briefingAutoShownThisSession by mutableStateOf(false)
+        private set
+
+    fun markBriefingAutoShown() {
+        briefingAutoShownThisSession = true
+    }
 }

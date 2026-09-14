@@ -14,6 +14,9 @@ import com.example.myandroidapplication.ui.AppPages
 import com.example.myandroidapplication.ui.component.AIAdviceCard
 import com.example.myandroidapplication.ui.component.AIChatEntry
 import com.example.myandroidapplication.ui.component.AIChatSheet
+import com.example.myandroidapplication.ui.component.HoldingDiagnoseEntry
+import com.example.myandroidapplication.ui.component.HoldingDiagnoseSheet
+import com.example.myandroidapplication.ui.component.IndustryChainCard
 import com.example.myandroidapplication.ui.component.AISignalCard
 import com.example.myandroidapplication.ui.component.AISummaryCard
 import com.example.myandroidapplication.ui.component.AITicker
@@ -25,6 +28,7 @@ import com.example.myandroidapplication.ui.component.PeriodTab
 import com.example.myandroidapplication.ui.component.PriceChangeGroup
 import com.example.myandroidapplication.ui.component.QuoteMetricsBlock
 import com.example.myandroidapplication.ui.component.QuoteTopBar
+import com.example.myandroidapplication.ui.component.SentimentMeter
 import com.example.myandroidapplication.ui.component.StockChart
 import com.example.myandroidapplication.ui.component.TagChip
 import com.example.myandroidapplication.ui.theme.AppColors
@@ -88,6 +92,7 @@ private fun StockDetailScreen(
 ) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
     var showSheet by remember { mutableStateOf(false) }
+    var showHolding by remember { mutableStateOf(false) }
     val sheetHeight = (pageViewHeight * 0.72f).coerceIn(480f, 640f).dp
     Column(
         modifier = Modifier
@@ -115,9 +120,6 @@ private fun StockDetailScreen(
             val listState = rememberLazyListState()
             val hasTicker = stock.alerts.isNotEmpty()
             val hasTags = stock.tags.isNotEmpty()
-            val itemSignal = if (hasTags) 4 else 3
-            val itemAdvice = itemSignal + 1
-            val itemTrend = itemAdvice + 1
             var period by remember(stock.symbol) { mutableStateOf(ChartPeriod.DAILY) }
             var chartType by remember(stock.symbol) { mutableStateOf(ChartType.LINE) }
             var adjust by remember(stock.symbol) { mutableStateOf(AdjustType.NONE) }
@@ -135,11 +137,7 @@ private fun StockDetailScreen(
                 AITicker(
                     alerts = stock.alerts,
                     onClick = { alert ->
-                        val target = when (alert.type) {
-                            Stock.ALERT_RISK -> itemAdvice
-                            Stock.ALERT_TREND -> itemTrend
-                            else -> itemSignal
-                        }
+                        val target = tickerScrollIndex(hasTags = hasTags, alertType = alert.type)
                         listState.requestScrollToItem(target)
                     }
                 )
@@ -152,15 +150,22 @@ private fun StockDetailScreen(
                 beyondBoundsItemCount = 3
             ) {
                 if (!hasTicker) {
-                    item {
+                    item(key = "detail_top_space") {
                         Box(modifier = Modifier.height(AppDimens.Space8))
                     }
                 }
-                item {
-                    PriceChangeGroup(stock = stock)
+                item(key = "detail_price") {
+                    PriceChangeGroup(
+                        stock = stock,
+                        modifier = if (hasTicker) {
+                            Modifier.padding(top = AppDimens.Space3)
+                        } else {
+                            Modifier
+                        }
+                    )
                 }
                 if (hasTags) {
-                    item {
+                    item(key = "detail_tags") {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = PaddingValues(
@@ -180,10 +185,10 @@ private fun StockDetailScreen(
                         }
                     }
                 }
-                item {
+                item(key = "detail_metrics") {
                     QuoteMetricsBlock(stock = stock)
                 }
-                item {
+                item(key = "detail_chart") {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -227,7 +232,7 @@ private fun StockDetailScreen(
                         )
                     }
                 }
-                item {
+                item(key = "detail_signal") {
                     AISignalCard(
                         stock = stock,
                         selectedPointIndex = selectedIndex,
@@ -237,8 +242,22 @@ private fun StockDetailScreen(
                             .padding(top = AppDimens.Space3)
                     )
                 }
-                item {
-                    AIAdviceCard(
+                item(key = "detail_advice") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        AIAdviceCard(
+                            stock = stock,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AppDimens.Space4)
+                                .padding(top = AppDimens.Space3)
+                        )
+                        HoldingDiagnoseEntry(
+                            onClick = { showHolding = true }
+                        )
+                    }
+                }
+                item(key = "detail_sentiment") {
+                    SentimentMeter(
                         stock = stock,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -246,7 +265,7 @@ private fun StockDetailScreen(
                             .padding(top = AppDimens.Space3)
                     )
                 }
-                item {
+                item(key = "detail_trend") {
                     AITrendRow(
                         stock = stock,
                         modifier = Modifier
@@ -255,7 +274,7 @@ private fun StockDetailScreen(
                             .padding(top = AppDimens.Space3)
                     )
                 }
-                item {
+                item(key = "detail_summary") {
                     AISummaryCard(
                         stock = stock,
                         modifier = Modifier
@@ -264,7 +283,16 @@ private fun StockDetailScreen(
                             .padding(top = AppDimens.Space3)
                     )
                 }
-                item {
+                item(key = "detail_chain") {
+                    IndustryChainCard(
+                        stock = stock,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AppDimens.Space4)
+                            .padding(top = AppDimens.Space3)
+                    )
+                }
+                item(key = "detail_bottom_space") {
                     Box(modifier = Modifier.height(AppDimens.Space6 + AppDimens.Space4))
                 }
             }
@@ -276,6 +304,34 @@ private fun StockDetailScreen(
                     onDismissRequest = { showSheet = false }
                 )
             }
+            if (showHolding) {
+                HoldingDiagnoseSheet(
+                    stock = stock,
+                    sheetHeight = sheetHeight,
+                    onDismissRequest = { showHolding = false }
+                )
+            }
         }
+    }
+}
+
+/**
+ * 盯盘条点击滚到 LazyColumn 区块。有 Ticker 时列表无顶距占位，下标从价格区 0 起。
+ */
+private fun tickerScrollIndex(hasTags: Boolean, alertType: String): Int {
+    var index = 0
+    index++ // price
+    if (hasTags) index++
+    index++ // metrics
+    index++ // chart
+    val signal = index++
+    val advice = index++
+    index++ // sentiment
+    val trend = index
+    return when (alertType) {
+        Stock.ALERT_RISK -> advice
+        Stock.ALERT_TREND -> trend
+        Stock.ALERT_EVENT -> signal
+        else -> signal
     }
 }

@@ -20,7 +20,8 @@ import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.dp
 
 /**
- * 详情页高低 / 成交量 / 开盘四格。视觉规格见设计系统 5.7 节，最高最低不用涨跌色。
+ * 详情页高低 / 成交量 / 开盘 / 营收市值。视觉规格见设计系统 5.7 节，最高最低不用涨跌色。
+ * 营收、市值入参已是亿元，展示走 [QuoteFormat.revenue] 或同格式加「亿」。
  *
  * @param stock 当前个股
  */
@@ -46,6 +47,10 @@ fun QuoteMetricsBlock(
         Row(modifier = Modifier.fillMaxWidth()) {
             MetricCell("成交量", QuoteFormat.volume(stock.volume), Modifier.weight(1f))
             MetricCell("开盘", QuoteFormat.price(stock.open), Modifier.weight(1f))
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            MetricCell("营收", QuoteFormat.revenue(stock.revenue), Modifier.weight(1f))
+            MetricCell("市值", "${QuoteFormat.price(stock.marketCap)}亿", Modifier.weight(1f))
         }
     }
 }

@@ -1,7 +1,9 @@
 package com.example.myandroidapplication.data.repository
 
 import com.example.myandroidapplication.data.model.AdjustType
+import com.example.myandroidapplication.data.model.BriefingItem
 import com.example.myandroidapplication.data.model.CandlePoint
+import com.example.myandroidapplication.data.model.ChainPeer
 import com.example.myandroidapplication.data.model.ChartMark
 import com.example.myandroidapplication.data.model.ChartPeriod
 import com.example.myandroidapplication.data.model.ChartPoint
@@ -33,9 +35,15 @@ import kotlin.math.sin
  */
 class MockStockRepository : StockRepository {
 
-    private val aShares: List<Stock> by lazy { CN_SEEDS.mapIndexed { index, seed -> buildStock(seed, index) } }
-    private val hkShares: List<Stock> by lazy { HK_SEEDS.mapIndexed { index, seed -> buildStock(seed, index) } }
-    private val usShares: List<Stock> by lazy { US_SEEDS.mapIndexed { index, seed -> buildStock(seed, index) } }
+    private val aShares: List<Stock> by lazy {
+        attachChainPeers(CN_SEEDS.mapIndexed { index, seed -> buildStock(seed, index) })
+    }
+    private val hkShares: List<Stock> by lazy {
+        attachChainPeers(HK_SEEDS.mapIndexed { index, seed -> buildStock(seed, index) })
+    }
+    private val usShares: List<Stock> by lazy {
+        attachChainPeers(US_SEEDS.mapIndexed { index, seed -> buildStock(seed, index) })
+    }
     private val allStocks: List<Stock> by lazy { aShares + hkShares + usShares }
 
     override fun getStocks(): List<Stock> = aShares
@@ -282,6 +290,12 @@ class MockStockRepository : StockRepository {
                     Scenario.RANGE_RESISTANCE -> "均线缠绕，短期方向未明"
                     Scenario.BEAR_BREAK -> "短期均线空头排列，趋势偏弱"
                 }
+            ),
+            buildEventAlert(
+                index = index,
+                name = seed.name,
+                volumeRatio = volumeRatio,
+                changePercent = changePercent
             )
         )
 
@@ -298,6 +312,17 @@ class MockStockRepository : StockRepository {
         val summary =
             "今日该股开盘 ${open.px()}，最高 ${high.px()}，最低 ${low.px()}，收盘 ${close.px()}，" +
                 "涨跌幅 $changePctText，成交量较昨日${fundVerb} ${volumePct}%，$shortTrend。"
+        val reviewSummary = when (scenario) {
+            Scenario.BULL_SUPPORT ->
+                "复盘：开盘 ${open.px()}、最高 ${high.px()}、最低 ${low.px()}、收盘 ${close.px()}，" +
+                    "涨跌幅 $changePctText。支撑 ${support.px()} 守住，量比 ${volumeRatio.px()}，$shortTrend 格局延续。"
+            Scenario.RANGE_RESISTANCE ->
+                "复盘：开盘 ${open.px()}、最高 ${high.px()}、最低 ${low.px()}、收盘 ${close.px()}，" +
+                    "涨跌幅 $changePctText。全日在压力 ${resistance.px()} 附近徘徊，$shortTrend，方向未明。"
+            Scenario.BEAR_BREAK ->
+                "复盘：开盘 ${open.px()}、最高 ${high.px()}、最低 ${low.px()}、收盘 ${close.px()}，" +
+                    "涨跌幅 $changePctText。失守支撑 ${support.px()}，$shortTrend，次日优先控制仓位。"
+        }
 
         val sector = seed.sector.ifBlank { defaultSector(seed.market, index) }
         val popularity = (100 - index).coerceIn(1, 100)
@@ -375,6 +400,23 @@ class MockStockRepository : StockRepository {
                     "$shortTrend、$midTrend，下行风险仍在。"
         }
 
+        val briefingBullets = buildBriefingBullets(
+            name = seed.name,
+            price = price,
+            changePctText = changePctText,
+            advice = advice,
+            signal = signals.first(),
+            support = support,
+            scenario = scenario
+        )
+        val sentiment = buildSentiment(scenario, index)
+        val upsideProbability5d = buildUpsideProbability5d(
+            advice = advice,
+            shortTrend = shortTrend,
+            confidence = confidence,
+            index = index
+        )
+
         return Stock(
             symbol = seed.symbol,
             name = seed.name,
@@ -427,8 +469,64 @@ class MockStockRepository : StockRepository {
             trendConfidenceShort = trendConfidenceShort,
             trendConfidenceMid = trendConfidenceMid,
             trendConfidenceLong = trendConfidenceLong,
-            trendNarrative = trendNarrative
+            trendNarrative = trendNarrative,
+            briefingBullets = briefingBullets,
+            briefingItems = listOf(
+                buildBriefingItem(
+                    name = seed.name,
+                    symbol = seed.symbol,
+                    price = price,
+                    changePercent = changePercent,
+                    advice = advice,
+                    signal = signals.first(),
+                    support = support,
+                    scenario = scenario
+                )
+            ),
+            sentimentScore = sentiment.score,
+            newsPositive = sentiment.positive,
+            newsNeutral = sentiment.neutral,
+            newsNegative = sentiment.negative,
+            upsideProbability5d = upsideProbability5d,
+            reviewSummary = reviewSummary,
+            chainPeers = emptyList()
         )
+    }
+
+    private fun attachChainPeers(stocks: List<Stock>): List<Stock> {
+        if (stocks.size < 2) return stocks
+        return stocks.map { stock ->
+            val sameSector = stocks.filter { peer ->
+                peer.symbol != stock.symbol && peer.sector == stock.sector
+            }
+            val sameMarket = stocks.filter { peer -> peer.symbol != stock.symbol }
+            val pool = when {
+                sameSector.size >= 2 -> sameSector
+                sameSector.size == 1 -> {
+                    val extra = sameMarket.firstOrNull { it.symbol != sameSector[0].symbol }
+                    if (extra == null) sameSector else sameSector + extra
+                }
+                else -> sameMarket
+            }
+            val upstream = pool.first()
+            val downstream = pool.firstOrNull { it.symbol != upstream.symbol } ?: upstream
+            stock.copy(
+                chainPeers = listOf(
+                    ChainPeer(
+                        name = upstream.name,
+                        symbol = upstream.symbol,
+                        relation = ChainPeer.UPSTREAM,
+                        changePercent = upstream.changePercent
+                    ),
+                    ChainPeer(
+                        name = downstream.name,
+                        symbol = downstream.symbol,
+                        relation = ChainPeer.DOWNSTREAM,
+                        changePercent = downstream.changePercent
+                    )
+                )
+            )
+        }
     }
 
     private fun buildChartPoints(
@@ -484,6 +582,114 @@ class MockStockRepository : StockRepository {
             "MACD ${macd.px()} 位于零轴下方，均线空头",
             "反弹至压力 ${resistance.px()} 附近再评估仓位"
         )
+    }
+
+    private fun buildBriefingBullets(
+        name: String,
+        price: Double,
+        changePctText: String,
+        advice: String,
+        signal: String,
+        support: Double,
+        scenario: Scenario
+    ): List<String> {
+        val headline = "${name} 现价 ${price.px()}，涨跌幅 $changePctText，建议${advice}"
+        val follow = when (scenario) {
+            Scenario.BULL_SUPPORT -> "信号${signal}，支撑 ${support.px()}，关注企稳"
+            Scenario.RANGE_RESISTANCE -> "信号${signal}，现价靠近压力，不宜追高"
+            Scenario.BEAR_BREAK -> "信号${signal}，支撑 ${support.px()} 已失守"
+        }
+        return listOf(headline, follow)
+    }
+
+    private fun buildBriefingItem(
+        name: String,
+        symbol: String,
+        price: Double,
+        changePercent: Double,
+        advice: String,
+        signal: String,
+        support: Double,
+        scenario: Scenario
+    ): BriefingItem {
+        val note = when (scenario) {
+            Scenario.BULL_SUPPORT -> "支撑 ${support.px()}，关注企稳"
+            Scenario.RANGE_RESISTANCE -> "现价靠近压力，不宜追高"
+            Scenario.BEAR_BREAK -> "支撑 ${support.px()} 已失守"
+        }
+        return BriefingItem(
+            symbol = symbol,
+            name = name,
+            price = price,
+            changePercent = changePercent,
+            tags = listOf(signal, "建议$advice"),
+            note = note
+        )
+    }
+
+    private fun buildEventAlert(
+        index: Int,
+        name: String,
+        volumeRatio: Double,
+        changePercent: Double
+    ): WatchAlert {
+        val day = (8 + index % 20).toString().padStart(2, '0')
+        val date = "2026-09-$day"
+        val message = when (index % 3) {
+            0 -> {
+                val yoy = if (changePercent >= 0.0) {
+                    (12.0 + (index % 9) * 1.5).round2()
+                } else {
+                    (-(6.0 + (index % 8) * 1.2)).round2()
+                }
+                val yoyText = if (yoy > 0.0) "+${yoy.px()}%" else "${yoy.px()}%"
+                "${name} 业绩预告：$date 净利同比 $yoyText"
+            }
+            1 -> {
+                val cut = (1.20 + (index % 8) * 0.35).round2()
+                val until = (5 + index % 22).toString().padStart(2, '0')
+                "股东拟减持 ${cut.px()}%，窗口至 2026-10-$until"
+            }
+            else -> "机构调研 $date，量比 ${volumeRatio.px()}，关注现价变动"
+        }
+        return WatchAlert(Stock.ALERT_EVENT, message)
+    }
+
+    private fun buildSentiment(scenario: Scenario, index: Int): SentimentPack {
+        val (positive, neutral, negative) = when (scenario) {
+            Scenario.BULL_SUPPORT -> Triple(8 + index % 4, 3 + index % 2, 1 + index % 2)
+            Scenario.RANGE_RESISTANCE -> Triple(3 + index % 3, 6 + index % 3, 3 + index % 2)
+            Scenario.BEAR_BREAK -> Triple(1 + index % 2, 3 + index % 2, 8 + index % 4)
+        }
+        val total = positive + neutral + negative
+        val score = ((positive * 100 + neutral * 50) / total).coerceIn(0, 100)
+        return SentimentPack(
+            score = score,
+            positive = positive,
+            neutral = neutral,
+            negative = negative
+        )
+    }
+
+    private fun buildUpsideProbability5d(
+        advice: String,
+        shortTrend: String,
+        confidence: Int,
+        index: Int
+    ): Int {
+        val raw = when {
+            advice == Stock.ADVICE_SELL || shortTrend.contains("偏空") ->
+                confidence - 30 + index % 8
+            advice == Stock.ADVICE_BUY || shortTrend.contains("偏多") ->
+                confidence - 4 + index % 7
+            else -> confidence - 14 + index % 10
+        }
+        val capped = if (advice == Stock.ADVICE_SELL) {
+            raw.coerceIn(18, 48)
+        } else {
+            raw.coerceIn(0, 100)
+        }
+        return capped
     }
 
     private fun defaultSector(market: String, index: Int): String = when (market) {
@@ -892,6 +1098,13 @@ class MockStockRepository : StockRepository {
         val midTrend: String,
         val interpretation: String,
         val reason: String
+    )
+
+    private data class SentimentPack(
+        val score: Int,
+        val positive: Int,
+        val neutral: Int,
+        val negative: Int
     )
 
     companion object {

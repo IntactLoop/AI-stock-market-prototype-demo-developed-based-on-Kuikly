@@ -38,7 +38,7 @@ package com.example.myandroidapplication.data.model
  * @property adviceReason 买卖建议理由
  * @property shortTrend 短期趋势文案
  * @property midTrend 中期趋势文案
- * @property alerts 盯盘提醒，至少 3 条
+ * @property alerts 盯盘提醒，至少含风险 / 资金 / 趋势 / 事件各 1 条
  * @property chartPoints 走势点，供 StockChart 与图表联动
  * @property market 所属市场：沪深 / 港股 / 美股
  * @property sector 所属板块名称
@@ -57,6 +57,15 @@ package com.example.myandroidapplication.data.model
  * @property trendConfidenceMid 中期趋势置信度 0–100
  * @property trendConfidenceLong 长期趋势置信度 0–100
  * @property trendNarrative 趋势解读，须与均线/涨跌数据一致
+ * @property briefingBullets 盘前要点，1–2 条，须含价格/涨跌/信号等当前数字
+ * @property briefingItems 结构化早报，一只股票合并为一条
+ * @property sentimentScore 舆情情绪温度 0–100，与涨跌情景同向
+ * @property newsPositive 正面新闻条数
+ * @property newsNeutral 中性新闻条数
+ * @property newsNegative 负面新闻条数
+ * @property upsideProbability5d 未来 5 日上涨概率 0–100，与置信度/短期趋势同向；卖出时不超过 70
+ * @property reviewSummary 复盘口吻总结，须含开高低收与涨跌幅；盘中总结仍用 [aiSummary]
+ * @property chainPeers 产业链上下游关联公司，至少各 1 家
  */
 data class Stock(
     val symbol: String,
@@ -110,7 +119,16 @@ data class Stock(
     val trendConfidenceShort: Int,
     val trendConfidenceMid: Int,
     val trendConfidenceLong: Int,
-    val trendNarrative: String
+    val trendNarrative: String,
+    val briefingBullets: List<String>,
+    val briefingItems: List<BriefingItem> = emptyList(),
+    val sentimentScore: Int,
+    val newsPositive: Int,
+    val newsNeutral: Int,
+    val newsNegative: Int,
+    val upsideProbability5d: Int,
+    val reviewSummary: String,
+    val chainPeers: List<ChainPeer>
 ) {
     companion object {
         const val ADVICE_BUY = "买入"
@@ -122,6 +140,7 @@ data class Stock(
         const val ALERT_RISK = "风险"
         const val ALERT_FUND = "资金"
         const val ALERT_TREND = "趋势"
+        const val ALERT_EVENT = "事件"
         const val MARKET_CN = "沪深"
         const val MARKET_HK = "港股"
         const val MARKET_US = "美股"
@@ -144,10 +163,22 @@ data class ChartPoint(
 /**
  * AI 盯盘提醒一条，对应设计系统 AITicker。
  *
- * @property type 风险 / 资金 / 趋势，决定竖条与圆点颜色
- * @property message 单行提醒文案，需含具体点位或百分比
+ * @property type 风险 / 资金 / 趋势 / 事件，决定竖条与圆点颜色
+ * @property message 单行提醒文案，需含具体点位、日期或百分比
  */
 data class WatchAlert(
     val type: String,
     val message: String
+)
+
+/**
+ * 盘前早报一条。同一只股票的要点合并为一条，用 [tags] 并列展示。
+ */
+data class BriefingItem(
+    val symbol: String,
+    val name: String,
+    val price: Double,
+    val changePercent: Double,
+    val tags: List<String>,
+    val note: String
 )

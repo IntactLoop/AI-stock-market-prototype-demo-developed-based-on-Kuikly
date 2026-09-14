@@ -5,6 +5,10 @@ import com.example.myandroidapplication.ui.util.QuoteFormat
 
 /**
  * 问答模板回答。结论 / 理由 / 风险必须与当前 [Stock] 一致。
+ *
+ * @property conclusion 结论段
+ * @property reason 理由段
+ * @property riskLevel 风险等级，须与个股字段一致
  */
 data class ChatReply(
     val conclusion: String,
@@ -12,6 +16,7 @@ data class ChatReply(
     val riskLevel: String
 )
 
+/** 详情问答五个预设问题，顺序固定。 */
 internal val PresetQuestions = listOf(
     "适合买入吗？",
     "最近有什么风险？",
@@ -20,6 +25,9 @@ internal val PresetQuestions = listOf(
     "今日如何总结？"
 )
 
+/**
+ * 两参问答模板。文案与数字必须与 [stock] 一致；已有字符串冻结，只允许追加重载。
+ */
 internal fun answerQuestion(stock: Stock, question: String): ChatReply {
     val price = QuoteFormat.price(stock.price)
     val support = QuoteFormat.price(stock.support)
@@ -89,6 +97,43 @@ internal fun answerFollowUp(stock: Stock, question: String, previousQuestion: St
     return base.copy(conclusion = followUpPrefix(previousQuestion) + base.conclusion)
 }
 
+/**
+ * 带风险偏好的问答。先走两参模板，再包装语气；不改 [ChatReply.riskLevel] 与数字。
+ */
+internal fun answerQuestion(stock: Stock, question: String, preference: String): ChatReply {
+    return applyRiskPreference(answerQuestion(stock, question), preference)
+}
+
+/**
+ * 带风险偏好的追问。先走两参追问，再包装语气。
+ */
+internal fun answerFollowUp(
+    stock: Stock,
+    question: String,
+    previousQuestion: String,
+    preference: String
+): ChatReply {
+    return applyRiskPreference(answerFollowUp(stock, question, previousQuestion), preference)
+}
+
+/**
+ * 风险偏好包装层：只 copy 结论/理由前后缀，不改两参模板与 [ChatReply.riskLevel]。
+ */
+internal fun applyRiskPreference(reply: ChatReply, preference: String): ChatReply = when (preference) {
+    "稳健" -> reply.copy(
+        conclusion = "稳健视角：" + reply.conclusion,
+        reason = reply.reason + " 仓位上建议控制单票比例，避免一次打满。"
+    )
+    "进取" -> reply.copy(
+        conclusion = "进取视角：" + reply.conclusion,
+        reason = reply.reason + " 可关注支撑与压力附近的点位机会。"
+    )
+    else -> reply
+}
+
+/**
+ * 追问结论前缀，按上一问主题选择，不改模板正文。
+ */
 internal fun followUpPrefix(previousQuestion: String): String = when {
     previousQuestion.contains("支撑") || previousQuestion.contains("压力") ->
         "基于刚才关于支撑位的讨论，"

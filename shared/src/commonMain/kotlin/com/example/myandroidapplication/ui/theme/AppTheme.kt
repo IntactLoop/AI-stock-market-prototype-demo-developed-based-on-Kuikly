@@ -40,6 +40,10 @@ object AppColors {
     val Ma20 = Color(0xFFB388FF)
     /** 设计系统 5.6：主折线面积起点 `#2E4C9FFF`（约 18%）。 */
     val ChartArea = Color(0x2E4C9FFF)
+    /** 设计系统 5.8：底部 Sheet 遮罩 `#0B0E14` 60%。 */
+    val SheetScrim = Color(0x990B0E14)
+    /** 设计系统 5.8：底部 Sheet 浮起阴影（仅 spot，禁止 ambient）。 */
+    val SheetShadow = Color(0x66000000)
 }
 
 /**
@@ -70,6 +74,8 @@ object AppDimens {
     val StrokeDivider = 1.dp
     val StrokeAccent = 3.dp
     val MinTouch = 44.dp
+    /** 设计系统 5.8：底部 Sheet `shadow` elevation。 */
+    val SheetElevation = 8.dp
     val PriceColumnWidth = 88.dp
     val PercentChipMinWidth = 64.dp
     val PercentChipHeight = 20.dp

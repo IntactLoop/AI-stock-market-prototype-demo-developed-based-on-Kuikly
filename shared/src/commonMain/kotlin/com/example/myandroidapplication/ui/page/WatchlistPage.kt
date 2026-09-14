@@ -1,7 +1,6 @@
 package com.example.myandroidapplication.ui.page
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -10,8 +9,10 @@ import com.example.myandroidapplication.data.AppContainer
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.ui.AppPages
 import com.example.myandroidapplication.ui.component.NavBackButton
+import com.example.myandroidapplication.ui.component.QuoteBottomSheet
 import com.example.myandroidapplication.ui.component.QuoteTopBar
 import com.example.myandroidapplication.ui.component.QuoteTopBarAction
+import com.example.myandroidapplication.ui.component.SheetDragHandle
 import com.example.myandroidapplication.ui.component.StockCard
 import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
@@ -20,6 +21,7 @@ import com.tencent.kuikly.compose.ComposeContainer
 import com.tencent.kuikly.compose.foundation.background
 import com.tencent.kuikly.compose.foundation.clickable
 import com.tencent.kuikly.compose.foundation.interaction.MutableInteractionSource
+import com.tencent.kuikly.compose.foundation.layout.Arrangement
 import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.PaddingValues
@@ -29,25 +31,19 @@ import com.tencent.kuikly.compose.foundation.layout.fillMaxSize
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
+import com.tencent.kuikly.compose.foundation.layout.size
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.foundation.lazy.items
-import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
-import com.tencent.kuikly.compose.material3.ExperimentalMaterial3Api
-import com.tencent.kuikly.compose.material3.ModalBottomSheet
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
-import com.tencent.kuikly.compose.ui.draw.clip
-import com.tencent.kuikly.compose.ui.draw.shadow
-import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.tencent.kuikly.compose.ui.unit.dp
 import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.module.RouterModule
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
-import com.tencent.kuikly.core.timer.Timer
 
 /**
  * 自选股页。复用 [StockCard]，取消自选走外层文字按钮；空态 14sp Hint。
@@ -203,9 +199,8 @@ private fun WatchlistRow(
 }
 
 /**
- * 从全市场列表挑选加入自选。Kuikly [ModalBottomSheet] 仅 `visible` API。
+ * 从全市场列表挑选加入自选。外壳走 [QuoteBottomSheet]。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddWatchlistSheet(
     sheetHeight: Dp,
@@ -213,15 +208,6 @@ private fun AddWatchlistSheet(
     onAdded: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    var dismissArmed by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        val timer = Timer()
-        timer.schedule(delay = 80, period = 50_000) {
-            dismissArmed = true
-            timer.cancel()
-        }
-        onDispose { timer.cancel() }
-    }
     val watchlistRepository = AppContainer.watchlistRepository
     val candidates = remember(revision) {
         val repo = AppContainer.stockRepository
@@ -229,66 +215,51 @@ private fun AddWatchlistSheet(
             .flatMap { market -> repo.getStocksByMarket(market) }
             .filterNot { stock -> watchlistRepository.contains(stock.symbol) }
     }
-    val sheetShape = RoundedCornerShape(
-        topStart = AppDimens.RadiusSheet,
-        topEnd = AppDimens.RadiusSheet,
-        bottomEnd = 0.dp,
-        bottomStart = 0.dp
-    )
-    ModalBottomSheet(
-        visible = true,
-        onDismissRequest = {
-            if (dismissArmed) {
-                onDismissRequest()
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(sheetHeight)
-            .shadow(
-                elevation = 8.dp,
-                shape = sheetShape,
-                clip = true,
-                spotColor = Color(0x66000000)
-            )
-            .clip(sheetShape),
-        containerColor = AppColors.BgElevated,
-        scrimColor = Color(0x990B0E14)
+    QuoteBottomSheet(
+        sheetHeight = sheetHeight,
+        onDismissRequest = onDismissRequest
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(horizontal = AppDimens.Space4)
+                .background(AppColors.BgElevated)
         ) {
+            SheetDragHandle()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(AppDimens.MinTouch),
+                    .height(AppDimens.MinTouch)
+                    .padding(horizontal = AppDimens.Space4),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "添加自选",
-                    color = AppColors.TextSecondary,
+                    color = AppColors.TextTitle,
                     fontSize = AppType.Body,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
+                    fontWeight = FontWeight.SemiBold
                 )
-                Text(
-                    text = "关闭",
-                    color = AppColors.Primary,
-                    fontSize = AppType.Callout,
-                    fontWeight = FontWeight.Medium,
+                Box(
                     modifier = Modifier
-                        .height(AppDimens.MinTouch)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onDismissRequest
-                        )
-                        .padding(horizontal = AppDimens.Space2)
-                )
+                        .size(AppDimens.MinTouch)
+                        .clickable(onClick = onDismissRequest),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "关闭",
+                        color = AppColors.TextHint,
+                        fontSize = AppType.Callout,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(AppDimens.StrokeDivider)
+                    .background(AppColors.Divider)
+            )
             if (candidates.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -308,7 +279,8 @@ private fun AddWatchlistSheet(
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .padding(horizontal = AppDimens.Space4),
                     contentPadding = PaddingValues(bottom = AppDimens.Space6),
                     beyondBoundsItemCount = 3
                 ) {

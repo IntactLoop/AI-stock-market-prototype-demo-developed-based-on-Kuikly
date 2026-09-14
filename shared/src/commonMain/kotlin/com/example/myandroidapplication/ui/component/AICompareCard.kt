@@ -6,20 +6,10 @@ import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
 import com.example.myandroidapplication.ui.theme.AppType
 import com.example.myandroidapplication.ui.util.QuoteFormat
-import com.tencent.kuikly.compose.foundation.background
-import com.tencent.kuikly.compose.foundation.border
 import com.tencent.kuikly.compose.foundation.layout.Arrangement
-import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
-import com.tencent.kuikly.compose.foundation.layout.Row
-import com.tencent.kuikly.compose.foundation.layout.fillMaxHeight
-import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
-import com.tencent.kuikly.compose.foundation.layout.padding
-import com.tencent.kuikly.compose.foundation.layout.width
-import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Modifier
-import com.tencent.kuikly.compose.ui.draw.clip
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.text.style.TextOverflow
 
@@ -35,26 +25,10 @@ fun AICompareCard(
     modifier: Modifier = Modifier
 ) {
     val analysis = buildCompareAnalysis(stocks)
-    val shape = RoundedCornerShape(AppDimens.RadiusCard)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(AppColors.BgCardAI)
-            .border(AppDimens.StrokeDivider, AppColors.Border, shape)
+    AICardFrame(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(AppDimens.Space3)
     ) {
-        Box(
-            modifier = Modifier
-                .width(AppDimens.StrokeAccent)
-                .fillMaxHeight()
-                .background(AppColors.AI)
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(AppDimens.Space4),
-            verticalArrangement = Arrangement.spacedBy(AppDimens.Space3)
-        ) {
             Text(
                 text = "AI 综合分析",
                 color = AppColors.TextSecondary,
@@ -92,7 +66,6 @@ fun AICompareCard(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
-        }
     }
 }
 

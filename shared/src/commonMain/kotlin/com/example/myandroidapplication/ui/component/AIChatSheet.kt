@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.myandroidapplication.data.AppContainer
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.ui.chat.ChatReply
 import com.example.myandroidapplication.ui.chat.PresetQuestions
@@ -33,7 +34,6 @@ import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
 import com.tencent.kuikly.compose.foundation.layout.size
-import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.foundation.lazy.LazyRow
 import com.tencent.kuikly.compose.foundation.lazy.items
@@ -41,14 +41,12 @@ import com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
 import com.tencent.kuikly.compose.material3.ExperimentalMaterial3Api
 import com.tencent.kuikly.compose.material3.LinearProgressIndicator
-import com.tencent.kuikly.compose.material3.ModalBottomSheet
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.material3.TextField
 import com.tencent.kuikly.compose.material3.TextFieldDefaults
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
 import com.tencent.kuikly.compose.ui.draw.clip
-import com.tencent.kuikly.compose.ui.draw.shadow
 import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.text.TextStyle
 import com.tencent.kuikly.compose.ui.text.font.FontFamily
@@ -68,47 +66,15 @@ import com.tencent.kuikly.core.timer.Timer
  * @param sheetHeight 页面高度 × 0.72 后夹在 480–640dp
  * @param onDismissRequest 关闭 Sheet
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIChatSheet(
     stock: Stock,
     sheetHeight: Dp,
     onDismissRequest: () -> Unit
 ) {
-    var dismissArmed by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        val timer = Timer()
-        timer.schedule(delay = 80, period = 50_000) {
-            dismissArmed = true
-            timer.cancel()
-        }
-        onDispose { timer.cancel() }
-    }
-    val sheetShape = RoundedCornerShape(
-        topStart = AppDimens.RadiusSheet,
-        topEnd = AppDimens.RadiusSheet,
-        bottomEnd = 0.dp,
-        bottomStart = 0.dp
-    )
-    ModalBottomSheet(
-        visible = true,
-        onDismissRequest = {
-            if (dismissArmed) {
-                onDismissRequest()
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(sheetHeight)
-            .shadow(
-                elevation = 8.dp,
-                shape = sheetShape,
-                clip = true,
-                spotColor = Color(0x66000000)
-            )
-            .clip(sheetShape),
-        containerColor = AppColors.BgElevated,
-        scrimColor = Color(0x990B0E14)
+    QuoteBottomSheet(
+        sheetHeight = sheetHeight,
+        onDismissRequest = onDismissRequest
     ) {
         ChatSheetBody(
             stock = stock,
@@ -162,10 +128,20 @@ private fun ChatSheetBody(
             val withoutLoading = messages.filter { it !is ChatLine.Loading }
             messages = try {
                 val previous = pendingPrevious
+                val chosen = AppContainer.riskPreferenceChosen
+                val preference = AppContainer.riskPreference
                 val reply = if (previous.isNullOrBlank()) {
-                    answerQuestion(stock, question)
+                    if (chosen) {
+                        answerQuestion(stock, question, preference)
+                    } else {
+                        answerQuestion(stock, question)
+                    }
                 } else {
-                    answerFollowUp(stock, question, previous)
+                    if (chosen) {
+                        answerFollowUp(stock, question, previous, preference)
+                    } else {
+                        answerFollowUp(stock, question, previous)
+                    }
                 }
                 withoutLoading + ChatLine.Ai(nextId, reply, question).also { nextId += 1 }
             } catch (_: Throwable) {
@@ -189,19 +165,7 @@ private fun ChatSheetBody(
             .fillMaxHeight()
             .background(AppColors.BgElevated)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(20.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(32.dp)
-                    .height(4.dp)
-                    .background(AppColors.Divider, RoundedCornerShape(2.dp))
-            )
-        }
+        SheetDragHandle()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -257,7 +221,7 @@ private fun ChatSheetBody(
                         is ChatLine.Loading -> LoadingBubble()
                         is ChatLine.Failed -> FailedBubble()
                         is ChatLine.Ai -> {
-                            AiBubble(reply = line.reply)
+                            AIBubble(reply = line.reply)
                             val lastAi = messages.lastOrNull { it is ChatLine.Ai } as? ChatLine.Ai
                             if (!loading && lastAi?.id == line.id) {
                                 FollowUpSuggestions(
@@ -381,7 +345,7 @@ private fun UserBubble(text: String) {
                         bottomStart = AppDimens.RadiusCard
                     )
                 )
-                .padding(horizontal = AppDimens.Space3, vertical = 10.dp)
+                .padding(horizontal = AppDimens.Space3, vertical = AppDimens.Space2)
         ) {
             Text(
                 text = text,
@@ -395,7 +359,7 @@ private fun UserBubble(text: String) {
 }
 
 @Composable
-private fun AiBubble(reply: ChatReply) {
+private fun AIBubble(reply: ChatReply) {
     val shape = RoundedCornerShape(
         topStart = AppDimens.RadiusCard,
         topEnd = AppDimens.RadiusCard,
@@ -411,7 +375,7 @@ private fun AiBubble(reply: ChatReply) {
                 .fillMaxWidth(0.76f)
                 .background(AppColors.BgCardAI, shape)
                 .border(AppDimens.StrokeDivider, AppColors.Border, shape)
-                .padding(horizontal = AppDimens.Space3, vertical = 10.dp)
+                .padding(horizontal = AppDimens.Space3, vertical = AppDimens.Space2)
         ) {
             Text(
                 text = reply.conclusion,

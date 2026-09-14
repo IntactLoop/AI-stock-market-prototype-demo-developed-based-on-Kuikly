@@ -37,7 +37,7 @@ fun IndexCard(
     Column(
         modifier = modifier
             .width(IndexCardWidth)
-            .height(OverviewCardHeight)
+            .height(HeightOverviewCard)
             .clip(shape)
             .background(AppColors.BgCard)
             .border(AppDimens.StrokeDivider, AppColors.Border, shape)
@@ -72,4 +72,5 @@ fun IndexCard(
 }
 
 private val IndexCardWidth = 128.dp
-internal val OverviewCardHeight = 80.dp
+/** 首页指数卡与板块卡共用高度，对齐 [AppDimens] 的 Height* 命名。 */
+internal val HeightOverviewCard = 80.dp

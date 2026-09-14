@@ -1,6 +1,10 @@
 package com.example.myandroidapplication.ui.component
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
@@ -8,10 +12,15 @@ import com.example.myandroidapplication.ui.theme.AppType
 import com.example.myandroidapplication.ui.util.QuoteFormat
 import com.tencent.kuikly.compose.foundation.background
 import com.tencent.kuikly.compose.foundation.border
+import com.tencent.kuikly.compose.foundation.clickable
+import com.tencent.kuikly.compose.foundation.interaction.MutableInteractionSource
+import com.tencent.kuikly.compose.foundation.interaction.collectIsPressedAsState
 import com.tencent.kuikly.compose.foundation.layout.Arrangement
+import com.tencent.kuikly.compose.foundation.layout.Box
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Row
 import com.tencent.kuikly.compose.foundation.layout.Spacer
+import com.tencent.kuikly.compose.foundation.layout.fillMaxHeight
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
@@ -27,14 +36,17 @@ import com.tencent.kuikly.compose.ui.unit.dp
 
 /**
  * 行情总结卡片。视觉规格见设计系统 6.3 第 8 项；正文不包 SelectionContainer。
+ * 内部「盘中 / 复盘」Tab；对外仍只收 [stock] 与 [modifier]。
  *
- * @param stock 当前个股，总结取 [Stock.aiSummary]，指标与涨跌/量能/趋势一致
+ * @param stock 当前个股，盘中取 [Stock.aiSummary]，复盘取 [Stock.reviewSummary]
  */
 @Composable
 fun AISummaryCard(
     stock: Stock,
     modifier: Modifier = Modifier
 ) {
+    var reviewTab by remember(stock.symbol) { mutableStateOf(false) }
+    val body = if (reviewTab) stock.reviewSummary else stock.aiSummary
     val shape = RoundedCornerShape(AppDimens.RadiusCard)
     Column(
         modifier = modifier
@@ -50,9 +62,14 @@ fun AISummaryCard(
             fontSize = AppType.Body,
             fontWeight = FontWeight.SemiBold
         )
+        Spacer(modifier = Modifier.height(AppDimens.Space2))
+        SummaryModeTab(
+            reviewSelected = reviewTab,
+            onSelectReview = { reviewTab = it }
+        )
         Spacer(modifier = Modifier.height(AppDimens.Space3))
         Text(
-            text = stock.aiSummary,
+            text = body,
             color = AppColors.TextBody,
             fontSize = AppType.Callout,
             fontWeight = FontWeight.Normal,
@@ -87,6 +104,70 @@ fun AISummaryCard(
                 valueColor = AppColors.TextTitle,
                 monospaced = false,
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryModeTab(
+    reviewSelected: Boolean,
+    onSelectReview: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(AppDimens.HeightChip)
+    ) {
+        SummaryModeTabItem(
+            label = "盘中",
+            selected = !reviewSelected,
+            onClick = { onSelectReview(false) },
+            modifier = Modifier.weight(1f)
+        )
+        SummaryModeTabItem(
+            label = "复盘",
+            selected = reviewSelected,
+            onClick = { onSelectReview(true) },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun SummaryModeTabItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(if (pressed) AppColors.BgPress else AppColors.BgCardAI)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (selected) AppColors.Primary else AppColors.TextHint,
+            fontSize = AppType.Caption,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1
+        )
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(AppDimens.StrokeAccent)
+                    .background(AppColors.AI)
             )
         }
     }

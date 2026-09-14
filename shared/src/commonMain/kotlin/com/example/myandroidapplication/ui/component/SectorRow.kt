@@ -37,7 +37,7 @@ fun SectorRow(
     Column(
         modifier = modifier
             .width(SectorCardWidth)
-            .height(OverviewCardHeight)
+            .height(HeightOverviewCard)
             .clip(shape)
             .background(AppColors.BgCard)
             .border(AppDimens.StrokeDivider, AppColors.Border, shape)

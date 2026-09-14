@@ -34,6 +34,9 @@ object QuoteFormat {
         else -> AppColors.Flat
     }
 
+    /**
+     * 列表涨跌幅胶囊背景。上涨 [AppColors.RiseDim]，下跌 [AppColors.FallDim]，平盘 [AppColors.FlatDim]。
+     */
     fun percentChipBackground(changePercent: Double): Color = when {
         changePercent > 0.0 -> AppColors.RiseDim
         changePercent < 0.0 -> AppColors.FallDim
@@ -53,6 +56,16 @@ object QuoteFormat {
      * 营收。入参已是亿元，展示为 `237.80亿`。
      */
     fun revenue(value: Double): String = "${twoDecimals(value)}亿"
+
+    /**
+     * 成交额。入参为元，换算亿元后复用 [revenue]。
+     */
+    fun turnoverAmount(yuan: Double): String = revenue(yuan / 100_000_000.0)
+
+    /**
+     * 换手率，两位小数加百分号，如 `1.25%`。
+     */
+    fun turnoverRate(value: Double): String = "${twoDecimals(value)}%"
 
     private fun signed(value: Double): String {
         val body = twoDecimals(abs(value))

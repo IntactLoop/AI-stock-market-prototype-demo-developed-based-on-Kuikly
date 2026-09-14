@@ -136,7 +136,7 @@ fun AdviceSupportPoints(
             ) {
                 Box(
                     modifier = Modifier
-                        .padding(top = 5.dp)
+                        .padding(top = AppDimens.Space1)
                         .size(6.dp)
                         .background(AppColors.AI, RoundedCornerShape(3.dp))
                 )

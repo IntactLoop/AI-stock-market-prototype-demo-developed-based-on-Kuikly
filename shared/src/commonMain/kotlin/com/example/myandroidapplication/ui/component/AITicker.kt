@@ -36,8 +36,9 @@ import com.tencent.kuikly.core.timer.Timer
 
 /**
  * 详情页盯盘提醒条。视觉规格见设计系统 5.5 节：36dp、3000ms 硬切、几何圆点。
+ * 事件类型竖条 / 圆点用 [AppColors.AI]，不占用涨跌红绿。
  *
- * @param alerts 至少 3 条；为空时不展示（由调用方隐藏）
+ * @param alerts 至少 4 条（风险 / 资金 / 趋势 / 事件）；为空时不展示（由调用方隐藏）
  * @param onClick 点击当前条，跳转到对应分析区域
  */
 @Composable
@@ -124,5 +125,7 @@ fun AITicker(
 private fun tickerAccent(type: String): Color = when (type) {
     Stock.ALERT_RISK -> AppColors.Rise
     Stock.ALERT_FUND -> AppColors.Warning
+    Stock.ALERT_TREND -> AppColors.Success
+    Stock.ALERT_EVENT -> AppColors.AI
     else -> AppColors.Success
 }

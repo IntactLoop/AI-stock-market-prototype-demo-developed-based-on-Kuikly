@@ -1,7 +1,6 @@
 package com.example.myandroidapplication.ui.page
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -11,16 +10,21 @@ import com.example.myandroidapplication.data.AppContainer
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.data.model.StockFilter
 import com.example.myandroidapplication.ui.AppPages
+import com.example.myandroidapplication.ui.component.AIBriefingSheet
 import com.example.myandroidapplication.ui.component.CompareActionBar
 import com.example.myandroidapplication.ui.component.FilterPanel
 import com.example.myandroidapplication.ui.component.IndexCard
+import com.example.myandroidapplication.ui.component.ListHeader
 import com.example.myandroidapplication.ui.component.MarketTab
+import com.example.myandroidapplication.ui.component.QuoteBottomSheet
 import com.example.myandroidapplication.ui.component.QuoteSort
 import com.example.myandroidapplication.ui.component.QuoteTopBar
 import com.example.myandroidapplication.ui.component.QuoteTopBarAction
+import com.example.myandroidapplication.ui.component.RiskProfileSheet
 import com.example.myandroidapplication.ui.component.SectorRow
 import com.example.myandroidapplication.ui.component.SortBar
 import com.example.myandroidapplication.ui.component.StockCard
+import com.example.myandroidapplication.ui.component.collectBriefingItems
 import com.example.myandroidapplication.ui.component.sortedByQuote
 import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
@@ -48,15 +52,10 @@ import com.tencent.kuikly.compose.foundation.lazy.LazyRow
 import com.tencent.kuikly.compose.foundation.lazy.items
 import com.tencent.kuikly.compose.foundation.lazy.rememberLazyListState
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
-import com.tencent.kuikly.compose.material3.ExperimentalMaterial3Api
-import com.tencent.kuikly.compose.material3.ModalBottomSheet
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.setContent
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
-import com.tencent.kuikly.compose.ui.draw.clip
-import com.tencent.kuikly.compose.ui.draw.shadow
-import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.tencent.kuikly.compose.ui.unit.dp
@@ -64,11 +63,11 @@ import com.tencent.kuikly.core.annotations.Page
 import com.tencent.kuikly.core.module.Module
 import com.tencent.kuikly.core.module.RouterModule
 import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
-import com.tencent.kuikly.core.timer.Timer
 
 /**
  * 首页行情列表。数据来自 [AppContainer.stockRepository]。
  * TopBar → MarketTab → 指数 → 板块 → SortBar（含筛选与对比）→ 列表或空态。
+ * 早报以 [AIBriefingSheet] 弹出，不占主内容区。
  */
 @Page(AppPages.QUOTE_LIST)
 internal class QuoteListPage : ComposeContainer() {
@@ -139,6 +138,7 @@ private fun QuoteListScreen(
     var filter by remember { mutableStateOf(StockFilter.EMPTY) }
     var showFilter by remember { mutableStateOf(false) }
     var showOpenAccount by remember { mutableStateOf(false) }
+    var showRiskProfile by remember { mutableStateOf(!AppContainer.riskProfilePrompted) }
     val repository = AppContainer.stockRepository
     val stocks = remember(market, filter) { repository.filterStocks(market, filter) }
     val sortedStocks = remember(stocks, sort, sortAscending) {
@@ -151,6 +151,20 @@ private fun QuoteListScreen(
     }
     val listState = rememberLazyListState()
     val sheetHeight = (pageViewHeight * 0.72f).coerceIn(480f, 640f).dp
+    val watchSymbols = AppContainer.watchlistRepository.getAll()
+    val briefingItems = remember(watchSymbols) {
+        val watched = watchSymbols.mapNotNull { symbol -> repository.getStock(symbol) }
+        collectBriefingItems(watched)
+    }
+    var showBriefing by remember {
+        val shouldAuto = briefingItems.isNotEmpty() &&
+            AppContainer.riskProfilePrompted &&
+            !AppContainer.briefingAutoShownThisSession
+        if (shouldAuto) {
+            AppContainer.markBriefingAutoShown()
+        }
+        mutableStateOf(shouldAuto)
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -162,6 +176,7 @@ private fun QuoteListScreen(
             titleCentered = false,
             actions = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    QuoteTopBarAction(text = "早报", onClick = { showBriefing = true })
                     QuoteTopBarAction(text = "选股", onClick = onPickerClick)
                     QuoteTopBarAction(text = "榜单", onClick = onRankingsClick)
                     QuoteTopBarAction(text = "自选", onClick = onWatchlistClick)
@@ -242,6 +257,9 @@ private fun QuoteListScreen(
                 )
             }
         } else {
+            ListHeader(
+                startGutter = if (AppContainer.compareMode) AppDimens.Space8 else 0.dp
+            )
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -328,6 +346,24 @@ private fun QuoteListScreen(
                 onDismissRequest = { showOpenAccount = false }
             )
         }
+        if (showRiskProfile) {
+            RiskProfileSheet(
+                onDismissRequest = {
+                    showRiskProfile = false
+                    if (briefingItems.isNotEmpty() && !AppContainer.briefingAutoShownThisSession) {
+                        AppContainer.markBriefingAutoShown()
+                        showBriefing = true
+                    }
+                }
+            )
+        }
+        if (showBriefing && !showRiskProfile) {
+            AIBriefingSheet(
+                items = briefingItems,
+                pageViewHeight = pageViewHeight,
+                onDismissRequest = { showBriefing = false }
+            )
+        }
     }
 }
 
@@ -409,45 +445,13 @@ private fun OverviewSectionTitle(text: String) {
 }
 
 /**
- * 开户占位。复用已有 [ModalBottomSheet]，不引入新依赖。
+ * 开户占位。复用 [QuoteBottomSheet]，不引入新依赖。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OpenAccountPlaceholder(onDismissRequest: () -> Unit) {
-    var dismissArmed by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        val timer = Timer()
-        timer.schedule(delay = 80, period = 50_000) {
-            dismissArmed = true
-            timer.cancel()
-        }
-        onDispose { timer.cancel() }
-    }
-    val sheetShape = RoundedCornerShape(
-        topStart = AppDimens.RadiusSheet,
-        topEnd = AppDimens.RadiusSheet,
-        bottomEnd = 0.dp,
-        bottomStart = 0.dp
-    )
-    ModalBottomSheet(
-        visible = true,
-        onDismissRequest = {
-            if (dismissArmed) {
-                onDismissRequest()
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(280.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = sheetShape,
-                clip = true,
-                spotColor = Color(0x66000000)
-            )
-            .clip(sheetShape),
-        containerColor = AppColors.BgElevated,
-        scrimColor = Color(0x990B0E14)
+    QuoteBottomSheet(
+        sheetHeight = 280.dp,
+        onDismissRequest = onDismissRequest
     ) {
         Column(
             modifier = Modifier

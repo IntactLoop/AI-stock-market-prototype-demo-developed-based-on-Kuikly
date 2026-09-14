@@ -2,6 +2,7 @@ package com.example.myandroidapplication.ui.page
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -12,9 +13,12 @@ import com.example.myandroidapplication.data.model.StockPickCategory
 import com.example.myandroidapplication.ui.AppPages
 import com.example.myandroidapplication.ui.component.NavBackButton
 import com.example.myandroidapplication.ui.component.PickerTab
+import com.example.myandroidapplication.ui.component.ListHeader
 import com.example.myandroidapplication.ui.component.QuoteTopBar
+import com.example.myandroidapplication.ui.component.SearchBar
 import com.example.myandroidapplication.ui.component.StockCard
 import com.example.myandroidapplication.ui.component.TagChip
+import com.example.myandroidapplication.ui.component.WatchStarButton
 import com.example.myandroidapplication.ui.theme.AppColors
 import com.example.myandroidapplication.ui.theme.AppDimens
 import com.example.myandroidapplication.ui.theme.AppType
@@ -52,6 +56,7 @@ import com.tencent.kuikly.core.nvi.serialization.json.JSONObject
 
 /**
  * 选股分类页。四个 Tab 的列表来自 Repository，Tab 内筛选为分类芯片，不复用首页 [com.example.myandroidapplication.ui.component.FilterPanel]。
+ * 搜索为本地过滤；自选星标叠在 [StockCard] 右侧，不改卡片本身。
  */
 @Page(AppPages.STOCK_PICKER)
 internal class StockPickerPage : ComposeContainer() {
@@ -82,8 +87,13 @@ private fun StockPickerScreen(
     onStockClick: (String) -> Unit
 ) {
     val repository = AppContainer.stockRepository
+    val watchlistRepository = AppContainer.watchlistRepository
+    val watchedSymbols = remember {
+        mutableStateListOf<String>().also { it.addAll(watchlistRepository.getAll()) }
+    }
     var category by remember { mutableStateOf(StockPickCategory.COMPANY) }
     var chip by remember { mutableStateOf(FILTER_ALL) }
+    var query by remember { mutableStateOf("") }
     val picks = remember(category) { repository.getStockPicks(category) }
     val etfs = remember { repository.getETFs() }
     val chipOptions = remember(category, picks, etfs) {
@@ -120,10 +130,22 @@ private fun StockPickerScreen(
             etfs.filter { it.category == chip }
         }
     }
+    val keyword = query.trim()
+    val searchedStocks = remember(visibleStocks, keyword) {
+        filterByKeyword(visibleStocks, keyword) { stock -> stock.name to stock.symbol }
+    }
+    val searchedEtfs = remember(visibleEtfs, keyword) {
+        filterByKeyword(visibleEtfs, keyword) { etf -> etf.name to etf.symbol }
+    }
     val empty = if (category == StockPickCategory.ETF) {
-        visibleEtfs.isEmpty()
+        searchedEtfs.isEmpty()
     } else {
-        visibleStocks.isEmpty()
+        searchedStocks.isEmpty()
+    }
+    val emptyText = if (keyword.isNotEmpty()) {
+        "未找到匹配的股票"
+    } else {
+        "没有符合条件的股票"
     }
     Column(
         modifier = Modifier
@@ -135,6 +157,16 @@ private fun StockPickerScreen(
             statusBarHeight = statusBarHeight,
             titleCentered = true,
             navigation = { NavBackButton(onBack) }
+        )
+        SearchBar(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.padding(
+                start = AppDimens.Space4,
+                end = AppDimens.Space4,
+                top = AppDimens.Space2,
+                bottom = AppDimens.Space2
+            )
         )
         PickerTab(
             tabs = StockPickCategory.ALL,
@@ -173,7 +205,7 @@ private fun StockPickerScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "没有符合条件的股票",
+                    text = emptyText,
                     color = AppColors.TextHint,
                     fontSize = AppType.Callout,
                     fontWeight = FontWeight.Normal,
@@ -181,6 +213,10 @@ private fun StockPickerScreen(
                 )
             }
         } else if (category == StockPickCategory.ETF) {
+            ListHeader(
+                priceLabel = "净值",
+                changeLabel = "涨跌幅"
+            )
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -193,14 +229,15 @@ private fun StockPickerScreen(
                 beyondBoundsItemCount = 3
             ) {
                 items(
-                    items = visibleEtfs,
+                    items = searchedEtfs,
                     key = { it.symbol },
                     contentType = { "etf_row" }
                 ) { etf ->
-                    EtfPickRow(etf = etf)
+                    ETFPickRow(etf = etf)
                 }
             }
         } else {
+            ListHeader(endGutter = AppDimens.MinTouch)
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -213,14 +250,38 @@ private fun StockPickerScreen(
                 beyondBoundsItemCount = 3
             ) {
                 items(
-                    items = visibleStocks,
+                    items = searchedStocks,
                     key = { it.symbol },
                     contentType = { "stock_card" }
                 ) { stock ->
-                    StockCard(
-                        stock = stock,
-                        onClick = { onStockClick(stock.symbol) }
-                    )
+                    val watched = watchedSymbols.contains(stock.symbol)
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(end = AppDimens.MinTouch)
+                        ) {
+                            StockCard(
+                                stock = stock,
+                                onClick = { onStockClick(stock.symbol) }
+                            )
+                        }
+                        WatchStarButton(
+                            watched = watched,
+                            onClick = {
+                                if (watched) {
+                                    watchlistRepository.remove(stock.symbol)
+                                    watchedSymbols.remove(stock.symbol)
+                                } else {
+                                    watchlistRepository.add(stock.symbol)
+                                    if (!watchedSymbols.contains(stock.symbol)) {
+                                        watchedSymbols.add(stock.symbol)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        )
+                    }
                 }
             }
         }
@@ -231,7 +292,7 @@ private fun StockPickerScreen(
  * ETF 简化列表项：净值 + 涨跌幅，不复用 [StockCard]（ETF 无涨跌额）。
  */
 @Composable
-private fun EtfPickRow(etf: ETF) {
+private fun ETFPickRow(etf: ETF) {
     val changeColor = QuoteFormat.changeColor(etf.changePercent)
     Box(
         modifier = Modifier
@@ -317,3 +378,19 @@ private fun EtfPickRow(etf: ETF) {
 }
 
 private const val FILTER_ALL = "全部"
+
+/**
+ * 名称或代码包含关键词（忽略大小写）。空关键词视为不过滤。
+ */
+private fun <T> filterByKeyword(
+    items: List<T>,
+    keyword: String,
+    nameAndSymbol: (T) -> Pair<String, String>
+): List<T> {
+    if (keyword.isEmpty()) return items
+    return items.filter { item ->
+        val (name, symbol) = nameAndSymbol(item)
+        name.contains(keyword, ignoreCase = true) ||
+            symbol.contains(keyword, ignoreCase = true)
+    }
+}

@@ -9,6 +9,7 @@ import com.example.myandroidapplication.ui.util.QuoteFormat
 import com.tencent.kuikly.compose.foundation.layout.Arrangement
 import com.tencent.kuikly.compose.foundation.layout.Column
 import com.tencent.kuikly.compose.foundation.layout.Row
+import com.tencent.kuikly.compose.foundation.layout.Spacer
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import com.tencent.kuikly.compose.ui.text.style.TextOverflow
 
 /**
  * 详情页展示型涨跌数字组。规格见设计系统 5.7 节。列表紧凑型已内嵌于 [StockCard]。
+ * 「最新价」标签在名称行下方、大数字上方，间距 4dp。
  */
 @Composable
 fun PriceChangeGroup(
@@ -31,7 +33,6 @@ fun PriceChangeGroup(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(AppDimens.HeightListItem)
             .padding(horizontal = AppDimens.Space4)
     ) {
         Row(
@@ -54,12 +55,18 @@ fun PriceChangeGroup(
                 modifier = Modifier.padding(start = AppDimens.Space2)
             )
         }
+        Text(
+            text = "最新价",
+            color = AppColors.TextHint,
+            fontSize = AppType.Caption,
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.padding(top = AppDimens.Space1)
+        )
+        Spacer(modifier = Modifier.height(AppDimens.Space1))
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Bottom
         ) {
             Text(
                 text = QuoteFormat.price(stock.price),
@@ -70,7 +77,10 @@ fun PriceChangeGroup(
                 lineHeight = AppType.DisplayLine,
                 maxLines = 1
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(AppDimens.Space2)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(AppDimens.Space2),
+                verticalAlignment = Alignment.Bottom
+            ) {
                 Text(
                     text = QuoteFormat.change(stock.change),
                     color = changeColor,

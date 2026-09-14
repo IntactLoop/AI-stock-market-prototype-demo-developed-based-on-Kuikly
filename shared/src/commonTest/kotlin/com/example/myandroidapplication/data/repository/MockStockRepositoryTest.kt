@@ -1,6 +1,7 @@
 package com.example.myandroidapplication.data.repository
 
 import com.example.myandroidapplication.data.model.AdjustType
+import com.example.myandroidapplication.data.model.ChainPeer
 import com.example.myandroidapplication.data.model.ChartPeriod
 import com.example.myandroidapplication.data.model.ChartType
 import com.example.myandroidapplication.data.model.ETF
@@ -8,6 +9,7 @@ import com.example.myandroidapplication.data.model.RankingType
 import com.example.myandroidapplication.data.model.Stock
 import com.example.myandroidapplication.data.model.StockFilter
 import com.example.myandroidapplication.data.model.StockPickCategory
+import com.example.myandroidapplication.ui.util.QuoteFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -35,7 +37,12 @@ class MockStockRepositoryTest {
         val stocks = repo.getStocks()
         val advice = setOf(Stock.ADVICE_BUY, Stock.ADVICE_HOLD, Stock.ADVICE_SELL)
         val risk = setOf(Stock.RISK_LOW, Stock.RISK_MID, Stock.RISK_HIGH)
-        val alertTypes = setOf(Stock.ALERT_RISK, Stock.ALERT_FUND, Stock.ALERT_TREND)
+        val alertTypes = setOf(
+            Stock.ALERT_RISK,
+            Stock.ALERT_FUND,
+            Stock.ALERT_TREND,
+            Stock.ALERT_EVENT
+        )
         stocks.forEach { stock ->
             assertTrue(stock.aiConfidence in 0..100)
             assertTrue(stock.aiAdvice in advice)
@@ -47,8 +54,10 @@ class MockStockRepositoryTest {
             assertTrue(stock.aiSummary.contains("开盘"))
             assertTrue(stock.aiSummary.contains("涨跌幅"))
             assertTrue(stock.aiSummary.contains(stock.shortTrend))
-            assertTrue(stock.alerts.size >= 3)
+            assertTrue(stock.alerts.size >= 4)
             assertEquals(alertTypes, stock.alerts.map { it.type }.toSet())
+            val event = stock.alerts.first { it.type == Stock.ALERT_EVENT }
+            assertTrue(event.message.contains("2026-") || event.message.contains("%"), stock.symbol)
             assertTrue(stock.chartPoints.size >= 20)
             assertEquals(stock.price, stock.chartPoints.last().price)
             assertTrue(stock.buyPoint > 0.0)
@@ -62,6 +71,56 @@ class MockStockRepositoryTest {
             assertTrue(stock.trendConfidenceLong in 0..100, stock.symbol)
             assertTrue(stock.trendNarrative.isNotBlank(), stock.symbol)
             assertTrue(stock.trendNarrative.contains(stock.shortTrend), stock.symbol)
+            assertTrue(stock.briefingBullets.size in 1..2, stock.symbol)
+            stock.briefingBullets.forEach { bullet ->
+                assertTrue(bullet.isNotBlank(), stock.symbol)
+            }
+            assertTrue(stock.briefingBullets.first().contains(stock.name), stock.symbol)
+            assertTrue(
+                stock.briefingBullets.first().contains(QuoteFormat.price(stock.price)),
+                stock.symbol
+            )
+            assertTrue(stock.sentimentScore in 0..100, stock.symbol)
+            assertTrue(stock.newsPositive >= 0, stock.symbol)
+            assertTrue(stock.newsNeutral >= 0, stock.symbol)
+            assertTrue(stock.newsNegative >= 0, stock.symbol)
+            val newsTotal = stock.newsPositive + stock.newsNeutral + stock.newsNegative
+            assertTrue(newsTotal >= 5, stock.symbol)
+            when (stock.aiAdvice) {
+                Stock.ADVICE_BUY -> {
+                    assertTrue(stock.newsPositive > stock.newsNegative, stock.symbol)
+                    assertTrue(stock.sentimentScore >= 55, stock.symbol)
+                }
+                Stock.ADVICE_SELL -> {
+                    assertTrue(stock.newsNegative >= stock.newsPositive, stock.symbol)
+                    assertTrue(stock.sentimentScore <= 50, stock.symbol)
+                }
+                else -> assertTrue(stock.newsNeutral >= stock.newsPositive || stock.newsNeutral >= stock.newsNegative, stock.symbol)
+            }
+            assertTrue(stock.upsideProbability5d in 0..100, stock.symbol)
+            if (stock.aiAdvice == Stock.ADVICE_SELL) {
+                assertTrue(stock.upsideProbability5d <= 70, stock.symbol)
+            }
+            if (stock.aiAdvice == Stock.ADVICE_BUY) {
+                assertTrue(stock.upsideProbability5d >= 50, stock.symbol)
+            }
+            assertTrue(stock.reviewSummary.isNotBlank(), stock.symbol)
+            assertTrue(stock.reviewSummary.contains("复盘"), stock.symbol)
+            assertTrue(stock.reviewSummary.contains("开盘"), stock.symbol)
+            assertTrue(stock.reviewSummary.contains("最高"), stock.symbol)
+            assertTrue(stock.reviewSummary.contains("最低"), stock.symbol)
+            assertTrue(stock.reviewSummary.contains("收盘"), stock.symbol)
+            assertTrue(stock.reviewSummary.contains("涨跌幅"), stock.symbol)
+            assertTrue(stock.reviewSummary.contains(stock.shortTrend), stock.symbol)
+            assertNotEquals(stock.aiSummary, stock.reviewSummary, stock.symbol)
+            assertTrue(stock.chainPeers.any { it.relation == ChainPeer.UPSTREAM }, stock.symbol)
+            assertTrue(stock.chainPeers.any { it.relation == ChainPeer.DOWNSTREAM }, stock.symbol)
+            stock.chainPeers.forEach { peer ->
+                val listed = repo.getStock(peer.symbol)
+                assertNotNull(listed, peer.symbol)
+                assertEquals(listed!!.name, peer.name, peer.symbol)
+                assertEquals(listed.changePercent, peer.changePercent, 0.0001, peer.symbol)
+            }
         }
         assertTrue(stocks.any { it.aiAdvice == Stock.ADVICE_BUY })
         assertTrue(stocks.any { it.aiAdvice == Stock.ADVICE_HOLD })

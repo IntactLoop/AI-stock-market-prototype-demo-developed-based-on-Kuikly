@@ -1,7 +1,6 @@
 package com.example.myandroidapplication.ui.component
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,28 +24,21 @@ import com.tencent.kuikly.compose.foundation.layout.fillMaxHeight
 import com.tencent.kuikly.compose.foundation.layout.fillMaxWidth
 import com.tencent.kuikly.compose.foundation.layout.height
 import com.tencent.kuikly.compose.foundation.layout.padding
-import com.tencent.kuikly.compose.foundation.layout.width
 import com.tencent.kuikly.compose.foundation.lazy.LazyColumn
 import com.tencent.kuikly.compose.foundation.shape.RoundedCornerShape
-import com.tencent.kuikly.compose.material3.ExperimentalMaterial3Api
-import com.tencent.kuikly.compose.material3.ModalBottomSheet
 import com.tencent.kuikly.compose.material3.Text
 import com.tencent.kuikly.compose.ui.Alignment
 import com.tencent.kuikly.compose.ui.Modifier
-import com.tencent.kuikly.compose.ui.draw.clip
-import com.tencent.kuikly.compose.ui.draw.shadow
-import com.tencent.kuikly.compose.ui.graphics.Color
 import com.tencent.kuikly.compose.ui.layout.onSizeChanged
 import com.tencent.kuikly.compose.ui.platform.LocalDensity
 import com.tencent.kuikly.compose.ui.text.font.FontWeight
 import com.tencent.kuikly.compose.ui.unit.Density
 import com.tencent.kuikly.compose.ui.unit.Dp
 import com.tencent.kuikly.compose.ui.unit.dp
-import com.tencent.kuikly.core.timer.Timer
 
 /**
- * 首页自定义筛选面板。Kuikly [ModalBottomSheet] 只用 `visible` API；
- * 首次合成可能误触发 dismiss，需忽略首次回调。
+ * 首页自定义筛选面板。外壳走 [QuoteBottomSheet]；
+ * 首次合成可能误触发 dismiss，由外壳忽略首次回调。
  *
  * @param applied 当前已生效条件，用于回填
  * @param tagOptions 当前市场可选标签，由页面从 Repository 列表提取，不在此过滤股票
@@ -54,7 +46,6 @@ import com.tencent.kuikly.core.timer.Timer
  * @param onConfirm 确定后把 [StockFilter] 交给页面，再调用 `filterStocks`
  * @param onDismissRequest 关闭
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterPanel(
     applied: StockFilter,
@@ -63,40 +54,9 @@ fun FilterPanel(
     onConfirm: (StockFilter) -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    var dismissArmed by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        val timer = Timer()
-        timer.schedule(delay = 80, period = 50_000) {
-            dismissArmed = true
-            timer.cancel()
-        }
-        onDispose { timer.cancel() }
-    }
-    val sheetShape = RoundedCornerShape(
-        topStart = AppDimens.RadiusSheet,
-        topEnd = AppDimens.RadiusSheet,
-        bottomEnd = 0.dp,
-        bottomStart = 0.dp
-    )
-    ModalBottomSheet(
-        visible = true,
-        onDismissRequest = {
-            if (dismissArmed) {
-                onDismissRequest()
-            }
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(sheetHeight)
-            .shadow(
-                elevation = 8.dp,
-                shape = sheetShape,
-                clip = true,
-                spotColor = Color(0x66000000)
-            )
-            .clip(sheetShape),
-        containerColor = AppColors.BgElevated,
-        scrimColor = Color(0x990B0E14)
+    QuoteBottomSheet(
+        sheetHeight = sheetHeight,
+        onDismissRequest = onDismissRequest
     ) {
         FilterPanelBody(
             applied = applied,
@@ -122,19 +82,7 @@ private fun FilterPanelBody(
     var capMax by remember(applied) { mutableStateOf(applied.maxMarketCap) }
     var tags by remember(applied) { mutableStateOf(applied.tags) }
     Column(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(20.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(32.dp)
-                    .height(4.dp)
-                    .background(AppColors.Divider, RoundedCornerShape(2.dp))
-            )
-        }
+        SheetDragHandle()
         Row(
             modifier = Modifier
                 .fillMaxWidth()

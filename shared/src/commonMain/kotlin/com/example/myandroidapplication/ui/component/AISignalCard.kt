@@ -39,6 +39,7 @@ import com.tencent.kuikly.compose.ui.unit.dp
 
 /**
  * AI 信号解读卡片。视觉规格见设计系统 5.3 节。
+ * 底部追加未来 5 日上涨概率，不改徽章、推理链与置信度条结构。
  *
  * @param stock 当前个股，信号与解读必须与其数据一致
  * @param selectedPointIndex 走势图选中点；非空时解读切换为该时点分析
@@ -136,8 +137,44 @@ fun AISignalCard(
                     color = AppColors.Primary,
                     trackColor = AppColors.Divider
                 )
+                Spacer(modifier = Modifier.height(AppDimens.Space3))
+                UpsideProbabilityRow(probability = stock.upsideProbability5d)
             }
         }
+    }
+}
+
+@Composable
+private fun UpsideProbabilityRow(probability: Int) {
+    val value = probability.coerceIn(0, 100)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$value%",
+                color = AppColors.AI,
+                fontSize = AppType.Caption,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = " 未来5日上涨概率",
+                color = AppColors.TextHint,
+                fontSize = AppType.Caption,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Spacer(modifier = Modifier.height(AppDimens.Space2))
+        LinearProgressIndicator(
+            progress = { value / 100f },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(AppDimens.HeightProgress)
+                .clip(RoundedCornerShape(2.dp)),
+            color = AppColors.Primary,
+            trackColor = AppColors.Divider
+        )
     }
 }
 
